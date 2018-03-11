@@ -1,0 +1,55 @@
+$dbName = "PayoneerIL"
+$sourceBackupPath = "\\pwnav-sqlsrv-a\x`$\SQL_Full_BK\$dbName"
+$targetBackupPath = "B:\$dbName"
+
+# Set Source in Event Log
+#New-EventLog -LogName Application -Source “PreProdRefresh”
+
+Write-EventLog -LogName "Application" -Source "PreProdRefresh" -EventID 3001 -EntryType Information -Message "STARTED: $dbName"
+
+# Copy latest bak file from source folder to target folder
+gci -Path $sourceBackupPath -File -Filter "*.bak" | Sort-Object -Property LastWriteTime -Descending | 
+    Select FullName -First 1 |
+    %($_){
+        $backuplocation = Copy-Item $_.FullName -Destination $targetBackupPath -PassThru
+    }
+
+# Restore bak file and overwrite *-PreProd db
+Write-EventLog -LogName "Application" -Source "PreProdRefresh" -EventID 3002 -EntryType Information -Message "Restoring: $dbName"
+
+import-module sqlps
+
+#Demo Database NAV (8-0)_Data
+
+$sourceDBName = "PayoneerIL"
+$sourceLogicalDataName = "Demo Database NAV (8-0)_Data"
+$sourceLogicalLogName = "Demo Database NAV (8-0)_Log"
+
+$targetDBName = "$dbName-PreProd"
+$targetDataPath = "e:\Program Files\Microsoft SQL Server\MSSQL12.MSSQLSERVER\MSSQL\Data\$targetDBName.mdf"
+$targetLogPath = "e:\Program Files\Microsoft SQL Server\MSSQL12.MSSQLSERVER\MSSQL\Data\$targetDBName.ldf"
+
+$sql = @"
+
+USE [master]
+
+SET DEADLOCK_PRIORITY HIGH
+
+ALTER DATABASE [$targetDBName] 
+    SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+
+RESTORE DATABASE [$targetDBName] 
+FROM DISK = N'$backuplocation' 
+WITH FILE = 1,  
+     MOVE N'$sourceLogicalDataName' TO N'$targetDataPath',  
+     MOVE N'$sourceLogicalLogName' TO N'$targetLogPath',  
+     NOUNLOAD, REPLACE, STATS = 5
+
+ALTER DATABASE [$targetDBName] 
+    SET MULTI_USER
+"@
+
+Invoke-Sqlcmd $sql
+
+Write-EventLog -LogName "Application" -Source "PreProdRefresh" -EventID 3003 -EntryType Information -Message "DONE: $dbName"
+
