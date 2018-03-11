@@ -1,4 +1,4 @@
-$dbName = "PayoneerIL"
+$dbName = "PayoneerUS"
 $sourceBackupPath = "\\pwnav-sqlsrv-a\x`$\SQL_Full_BK\$dbName"
 $targetBackupPath = "B:\$dbName"
 
@@ -6,6 +6,18 @@ $targetBackupPath = "B:\$dbName"
 #New-EventLog -LogName Application -Source “PreProdRefresh”
 
 Write-EventLog -LogName "Application" -Source "PreProdRefresh" -EventID 3001 -EntryType Information -Message "STARTED: $dbName"
+
+#ensure targetBackupPath exists
+If(!(Test-Path $targetBackupPath))
+{
+      New-Item -ItemType Directory -Force -Path $targetBackupPath
+}
+
+Import-Module "C:\Program Files\Microsoft Dynamics NAV\80\Service\NavAdminTool.ps1"
+
+$like = "*$dbName*"
+$ServerInstances = Get-NAVServerInstance | Where-Object -Property 'ServerInstance' -like $like
+$ServerInstances | Set-NAVServerInstance -Stop
 
 # Copy latest bak file from source folder to target folder
 gci -Path $sourceBackupPath -File -Filter "*.bak" | Sort-Object -Property LastWriteTime -Descending | 
@@ -21,7 +33,6 @@ import-module sqlps
 
 #Demo Database NAV (8-0)_Data
 
-$sourceDBName = "PayoneerIL"
 $sourceLogicalDataName = "Demo Database NAV (8-0)_Data"
 $sourceLogicalLogName = "Demo Database NAV (8-0)_Log"
 
@@ -49,7 +60,9 @@ ALTER DATABASE [$targetDBName]
     SET MULTI_USER
 "@
 
-Invoke-Sqlcmd $sql
+Invoke-Sqlcmd $sql -QueryTimeout 0
+
+$ServerInstances | Set-NAVServerInstance –Start
 
 Write-EventLog -LogName "Application" -Source "PreProdRefresh" -EventID 3003 -EntryType Information -Message "DONE: $dbName"
 
