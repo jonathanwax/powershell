@@ -1,6 +1,6 @@
 $dbName = "PayoneerUS"
-$sourceBackupPath = "\\pwnav-sqlsrv-a\x`$\SQL_Full_BK\$dbName"
-$targetBackupPath = "B:\$dbName"
+$sourceBackupPath = "\\server-name\drive-name\folder-name\$dbName"
+$targetBackupPath = "target-drive-name:\$dbName"
 
 # Set Source in Event Log
 #New-EventLog -LogName Application -Source “PreProdRefresh”
